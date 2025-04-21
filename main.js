@@ -7,30 +7,6 @@ const imageArray = [], sessionStorageArray = [];
 let baseRating = 1000;
 const k = 32; // K-factor for Elo rating system
 
-function submitAllRatings() {
-  const imgNaming = "animal";
-  const arrayLength = 30;
-  const baseRating = 1000;
-  const dataToSend = [];
-
-  for (let i = 1; i <= arrayLength; i++) {
-    const fileName = `${imgNaming} (${i}).jpg`;
-    const rating = parseFloat(sessionStorage.getItem(fileName)) || baseRating;
-    dataToSend.push({ name: fileName, rating: rating.toFixed(3) });
-  }
-
-  fetch("https://script.google.com/macros/s/AKfycbxLbY4Nq3Ivu24UiI7n69T_tIH40XZZT-Ecc8uQPAVA68mkirqXYkS7PTiYhx4-P3qaSw/exec", {
-    method: "POST",
-    body: JSON.stringify({ allRatings: dataToSend }),
-    headers: {
-      "Content-Type": "application/json"
-    }
-  })
-  .then(res => res.json())
-  .then(data => alert("Рейтинги отправлены!"))
-  .catch(err => alert("Ошибка отправки рейтингов"));
-}
-
 // Get a random item from the array
 function getRandomItem(array) {
   const randomIndex = Math.floor(Math.random() * array.length);
@@ -101,6 +77,23 @@ function updateEloAndDisplay(leftWin) {
       newImgName = getRandomItem(imageArray);
     } while (newImgName === rightImgName);
     leftImage.src = imgDir + encodeURIComponent(newImgName);
+  }
+
+  function sendRatingToGoogle(leftImgName, rightImgName, leftWin) {
+    fetch("https://script.google.com/macros/s/AKfycbxLbY4Nq3Ivu24UiI7n69T_tIH40XZZT-Ecc8uQPAVA68mkirqXYkS7PTiYhx4-P3qaSw/exec", {
+      method: "POST",
+      body: JSON.stringify({
+        leftImg: leftImgName,
+        rightImg: rightImgName,
+        leftWin: leftWin
+      }),
+      headers: {
+        "Content-Type": "application/json"
+      }
+    })
+    .then(res => res.json())
+    .then(data => console.log("Rating updated:", data))
+    .catch(err => console.error("Failed to send rating:", err));
   }
 }
 
