@@ -1,37 +1,51 @@
 # Facemash
 
-As shown in The Social Network movie built with Python using the Django Web Framework.
+<img src="/images/facemash.gif"/> 
 
-**P.S:** It ranks people using [Glicko-2 Rating System](https://en.wikipedia.org/wiki/Glicko_rating_system).
+Emulated the website from [The Social Network](https://www.imdb.com/title/tt1285016) to compare between two individuals, but with a twist — using actual farm animals instead of human profiles.
 
-![Facemash Screenshot](https://image.ibb.co/j42teo/facemash_screenshot.jpg "Facemash Screenshot")
+## Chess Player Ranking Algorithm (Elo Rating)
 
-### Installation Guide
+Given - $Base Rating: 1000$, $K: 32$
 
-Clone this repository:
+Probability of winning for Player A (left), $P_A$
 
-```shell
-$ git clone https://github.com/thetruefuss/facemash.git
-```
+$$P_A = \frac{1}{1 + 10^{(R_B - R_A)/400}}$$
 
-Install requirements:
+Probability of winning for Player B (right), $P_B$
 
-```shell
-$ pip install -r requirements.txt
-```
+$$P_B = \frac{1}{1 + 10^{(R_A - R_B)/400}}$$
 
-Copy `.env.example` file content to new `.env` file and update the credentials if any.
+When Player A wins (left chosen):
 
-Run Django migrations to create database tables:
+$$\text{leftRating} = \text{leftRating} + K \cdot (1 - P_A)$$
 
-```shell
-$ python manage.py migrate
-```
+$$\text{rightRating} = \text{rightRating} + K \cdot (0 - P_B)$$
 
-Run the development server:
+When Player B wins (right chosen):
 
-```shell
-$ python manage.py runserver
-```
+$$\text{leftRating} = \text{leftRating} + K \cdot (0 - P_A)$$
 
-Verify the deployment by navigating to [http://127.0.0.1:8000](http://127.0.0.1:8000) in your preferred browser.
+$$\text{rightRating} = \text{rightRating} + K \cdot (1 - P_B)$$
+
+## How to Use
+- Click on either side to increase image rating.
+- Image ranking based on elo rating can be viewed by navigating to `Rankings`.
+- Reopen page/tab to reset all image rating, refresh would not work.
+
+## Development
+1. Clone the repo by running `git clone https://github.com/Vincexodus/Facemash.git`.
+2. Install [Live Server | VSCode Extension](https://ritwickdey.github.io/vscode-live-server/) and enable it.
+3. On the bottom right of VSCode editor, click `Go Live`.
+4. The site should be running on localhost.
+
+## Contributing
+1. Fork this repo.
+2. Create your feature branch (`git checkout -b feature/fooBar`).
+3. Commit your changes (`git commit -am 'Add some fooBar'`).
+4. Push to the branch (`git push origin feature/fooBar`).
+5. Create a new Pull Request.
+
+## References
+- **The Social Network (2010)**. IMDB. Available at https://www.imdb.com/title/tt1285016
+- **Elo Rating Algorithm**. GeeksforGeeks. Available at https://www.geeksforgeeks.org/elo-rating-algorithm/
