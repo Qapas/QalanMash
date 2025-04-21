@@ -76,17 +76,14 @@ function submitRatingsToSheet() {
 
   fetch("https://script.google.com/macros/s/AKfycbxLbY4Nq3Ivu24UiI7n69T_tIH40XZZT-Ecc8uQPAVA68mkirqXYkS7PTiYhx4-P3qaSw/exec", {
     method: "POST",
-    mode: "no-cors", // можно убрать, если у тебя включён CORS в скрипте
     headers: {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({ allRatings: ratings })
   })
-  .then(() => {
-    alert("Рейтинги успешно отправлены!");
-  })
+  .then(() => alert("Рейтинги успешно отправлены!"))
   .catch((error) => {
-    console.error("Ошибка при отправке рейтингов:", error);
+    console.error("Ошибка при отправке:", error);
     alert("Ошибка отправки рейтингов");
   });
 }
