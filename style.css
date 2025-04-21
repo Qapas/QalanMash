@@ -34,12 +34,12 @@ th {
   height: 70%;
   margin: auto;
   text-align: center;
-  border: 3px solid rgb(120, 0, 0);
+  border: 3px solid rgb(49, 118, 246);
 }
 .title {
   font-size: 1.25rem;
   letter-spacing: 0.1rem;
-  background-color: rgb(120, 0, 0);
+  background-color: rgb(49, 118, 246);
   padding: 1rem;
   color: white;
 }
@@ -61,6 +61,7 @@ th {
   justify-content: center;
 }
 img{
+  object-fit: contain;
   width: 10rem;
   height: 15rem;
   border: 1px solid black;
@@ -78,7 +79,7 @@ img{
   padding: 0.5rem 0.2rem;
 }
 .house-list li a{
-  color: rgb(0, 195, 255);
+  color: rgb(49, 118, 246);
 }
 .footer-list {
   padding: 0.5rem 0;

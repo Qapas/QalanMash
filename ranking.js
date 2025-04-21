@@ -1,24 +1,25 @@
 const imgDir = "images/farm%20animals/";
+const imgNaming = "animal";
+const arrayLength = 30;
+const baseRating = 1000;
 
 document.addEventListener('DOMContentLoaded', function () {
-  const sessionStorageArray = [];
-  for (let i = 0; i < sessionStorage.length; i++) {
-    const key = sessionStorage.key(i);
-    const value = sessionStorage.getItem(key);
-    const floatValue = parseFloat(value);
+  const rankingArray = [];
 
-    if (!isNaN(floatValue)) {
-      const roundedValue = floatValue.toFixed(3);
-      sessionStorageArray.push({ key, value: roundedValue });
-    }
+  // Только известные картинки
+  for (let i = 1; i <= arrayLength; i++) {
+    const fileName = `${imgNaming} (${i}).jpg`;
+    const ratingValue = parseFloat(sessionStorage.getItem(fileName)) || baseRating;
+    rankingArray.push({ key: fileName, value: ratingValue.toFixed(3) });
   }
 
-  sessionStorageArray.sort((a, b) => parseFloat(b.value) - parseFloat(a.value));
+  // Сортируем по рейтингу
+  rankingArray.sort((a, b) => parseFloat(b.value) - parseFloat(a.value));
 
   const tableBody = document.getElementById('eloTableBody');
   tableBody.innerHTML = '';
 
-  sessionStorageArray.forEach((item, index) => {
+  rankingArray.forEach((item, index) => {
     const row = tableBody.insertRow();
     const cell1 = row.insertCell(0);
     const cell2 = row.insertCell(1);
@@ -26,7 +27,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const imgElement = document.createElement('img');
     imgElement.src = imgDir + item.key;
-
     imgElement.style.width = '7.5rem';
     imgElement.style.height = '10rem';
 

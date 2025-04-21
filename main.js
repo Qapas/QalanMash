@@ -2,6 +2,7 @@ const imgDir = "images/farm%20animals/";
 const imgNaming = "animal"
 const arrayLength = 24;
 const imageArray = [], sessionStorageArray = [];
+// const current = {left : 1 , right: 30}
 
 let baseRating = 1000;
 const k = 32; // K-factor for Elo rating system
@@ -41,69 +42,77 @@ function eloRating(leftRating, rightRating, k, win){
 
 // update session value and get new image
 function updateEloAndDisplay(leftWin) {
-  var leftImage = document.getElementById("leftImg");
-  var leftImgName = getImgName(leftImage.src);
-  
-  var rightImage = document.getElementById("rightImg");
-  var rightImgName = getImgName(rightImage.src);
+  const leftImage = document.getElementById("leftImg");
+  const rightImage = document.getElementById("rightImg");
 
-  const storedLeft = sessionStorage.getItem(leftImgName);
-  const storedRight = sessionStorage.getItem(rightImgName);
-  
-  if (storedLeft == null) {
+  const leftImgName = decodeURIComponent(getImgName(leftImage.src));
+  const rightImgName = decodeURIComponent(getImgName(rightImage.src));
+
+  if (!sessionStorage.getItem(leftImgName)) {
     sessionStorage.setItem(leftImgName, baseRating);
-  } 
+  }
 
-  if (storedRight == null) {
+  if (!sessionStorage.getItem(rightImgName)) {
     sessionStorage.setItem(rightImgName, baseRating);
   }
 
   const leftRating = parseFloat(sessionStorage.getItem(leftImgName));
   const rightRating = parseFloat(sessionStorage.getItem(rightImgName));
-  
+
   const result = eloRating(leftRating, rightRating, k, leftWin);
 
-  // Update the Elo ratings for the next round
   sessionStorage.setItem(leftImgName, result.leftRating);
   sessionStorage.setItem(rightImgName, result.rightRating);
 
-  // change image for unclicked side
+  let newImgName;
   if (leftWin) {
-    // swap right image
+    // Меняем правую картинку
     do {
-      rightImageSource = imgDir + getRandomItem(imageArray);
-    } while (rightImageSource === leftImage.src);
-    rightImage.src = rightImageSource;
+      newImgName = getRandomItem(imageArray);
+    } while (newImgName === leftImgName);
+    rightImage.src = imgDir + encodeURIComponent(newImgName);
   } else {
-    // swap left image
+    // Меняем левую картинку
     do {
-    leftImageSource = imgDir + getRandomItem(imageArray);
-    } while (leftImageSource === rightImage.src);
-    leftImage.src = leftImageSource;
+      newImgName = getRandomItem(imageArray);
+    } while (newImgName === rightImgName);
+    leftImage.src = imgDir + encodeURIComponent(newImgName);
+  }
+
+  function sendRatingToGoogle(leftImgName, rightImgName, leftWin) {
+    fetch("https://script.google.com/macros/s/AKfycbxLbY4Nq3Ivu24UiI7n69T_tIH40XZZT-Ecc8uQPAVA68mkirqXYkS7PTiYhx4-P3qaSw/exec", {
+      method: "POST",
+      body: JSON.stringify({
+        leftImg: leftImgName,
+        rightImg: rightImgName,
+        leftWin: leftWin
+      }),
+      headers: {
+        "Content-Type": "application/json"
+      }
+    })
+    .then(res => res.json())
+    .then(data => console.log("Rating updated:", data))
+    .catch(err => console.error("Failed to send rating:", err));
   }
 }
 
 document.addEventListener('DOMContentLoaded', function () {
   // Populate the array with filenames
   for (let i = 1; i <= arrayLength; i++) {
-    var img = imgNaming + ` (${i}).jpg`;
+    let img = `${imgNaming} (${i}).jpg`;
     imageArray.push(img);
     sessionStorage.setItem(img, baseRating);
   }
+
   let leftImg, rightImg;
-  // Ensure leftImg and rightImg are not the same
   do {
     leftImg = getRandomItem(imageArray);
     rightImg = getRandomItem(imageArray);
   } while (leftImg === rightImg);
 
-  // Get the img elements
-  const leftImgElement = document.getElementById('leftImg');
-  const rightImgElement = document.getElementById('rightImg');
-
-  // Set the src attribute of the img tags with random images
-  leftImgElement.src = imgDir + leftImg
-  rightImgElement.src = imgDir + rightImg
+  document.getElementById('leftImg').src = imgDir + encodeURIComponent(leftImg);
+  document.getElementById('rightImg').src = imgDir + encodeURIComponent(rightImg);
 });
 
 // left wins, right loses
@@ -117,4 +126,5 @@ function clickRight() {
 }
 
 
-
+//https://script.google.com/macros/s/AKfycbxLbY4Nq3Ivu24UiI7n69T_tIH40XZZT-Ecc8uQPAVA68mkirqXYkS7PTiYhx4-P3qaSw/exec
+//AKfycbxLbY4Nq3Ivu24UiI7n69T_tIH40XZZT-Ecc8uQPAVA68mkirqXYkS7PTiYhx4-P3qaSw
