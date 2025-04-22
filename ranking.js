@@ -1,5 +1,5 @@
 const imgDir = "images/farm%20animals/";
-const imgNaming = "animal";
+const imgNaming = "avatar";
 const arrayLength = 30;
 const baseRating = 1000;
 

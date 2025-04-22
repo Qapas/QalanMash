@@ -1,130 +1,121 @@
 const imgDir = "images/farm%20animals/";
-const imgNaming = "animal"
-const arrayLength = 24;
-const imageArray = [], sessionStorageArray = [];
-// const current = {left : 1 , right: 30}
+const imgNaming = "avatar";
+const arrayLength = 30;
+let tournamentQueue = [];
+let currentRound = 1;
+let currentMatchIndex = 0;
 
 let baseRating = 1000;
-const k = 32; // K-factor for Elo rating system
+const k = 32;
 
-// Get a random item from the array
-function getRandomItem(array) {
-  const randomIndex = Math.floor(Math.random() * array.length);
-  return imageArray[randomIndex];
+// Fisher-Yates shuffle
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
 }
 
-// Get img name without extension from element src
 function getImgName(url) {
   const lastIndex = url.lastIndexOf('/');
-  if (lastIndex !== -1) {
-    return url.substring(lastIndex + 1);
-  }
-  return url;
+  return lastIndex !== -1 ? url.substring(lastIndex + 1) : url;
 }
 
-// elo rating formula in chess
-function probability(leftRating, rightRating){
-  return 1.0*1.0/(1+1.0*Math.pow(10, 1.0*(leftRating-rightRating)/400));
+function probability(a, b) {
+  return 1 / (1 + Math.pow(10, (a - b) / 400));
 }
 
-function eloRating(leftRating, rightRating, k, win){
-  let leftProb = probability(rightRating, leftRating); // left win probability
-  let rightProb = probability(leftRating, rightRating); // right win probability
-  if (win) { // left wins, right chosen
-    leftRating = leftRating + k * (1 - leftProb); // add left rating
-    rightRating = rightRating + k * (0 - rightProb); // minus right rating
-  } else { // right wins. left chosen
-    leftRating = leftRating + k * (0 - leftProb); // minus left rating
-    rightRating = rightRating + k * (1 - rightProb); // add  right rating
-  }
-  return { leftRating, rightRating };
+function updateRatings(winner, loser) {
+  const winnerRating = parseFloat(sessionStorage.getItem(winner)) || baseRating;
+  const loserRating = parseFloat(sessionStorage.getItem(loser)) || baseRating;
+  
+  const expectedWin = probability(loserRating, winnerRating);
+  const newWinnerRating = winnerRating + k * (1 - expectedWin);
+  const newLoserRating = loserRating + k * (0 - (1 - expectedWin));
+  
+  sessionStorage.setItem(winner, newWinnerRating);
+  sessionStorage.setItem(loser, newLoserRating);
 }
 
-// update session value and get new image
-function updateEloAndDisplay(leftWin) {
-  const leftImage = document.getElementById("leftImg");
-  const rightImage = document.getElementById("rightImg");
-
-  const leftImgName = decodeURIComponent(getImgName(leftImage.src));
-  const rightImgName = decodeURIComponent(getImgName(rightImage.src));
-
-  if (!sessionStorage.getItem(leftImgName)) {
-    sessionStorage.setItem(leftImgName, baseRating);
+function prepareNextMatch() {
+  if (currentMatchIndex + 1 >= tournamentQueue.length) {
+    // Переход к следующему раунду
+    currentRound++;
+    const winners = tournamentQueue.filter((_, i) => i % 2 === 0); // Берем первых из пар
+    if (winners.length <= 1) {
+      alert(`Tournament finished! Winner: ${winners[0]}`);
+      return false;
+    }
+    
+    tournamentQueue = [];
+    for (let i = 0; i < winners.length; i += 2) {
+      tournamentQueue.push([winners[i], winners[i + 1] || null]);
+    }
+    currentMatchIndex = 0;
   }
-
-  if (!sessionStorage.getItem(rightImgName)) {
-    sessionStorage.setItem(rightImgName, baseRating);
+  
+  const nextMatch = tournamentQueue[currentMatchIndex];
+  if (!nextMatch[1]) { // Нечетное количество участников
+    tournamentQueue.splice(currentMatchIndex, 1);
+    return prepareNextMatch();
   }
-
-  const leftRating = parseFloat(sessionStorage.getItem(leftImgName));
-  const rightRating = parseFloat(sessionStorage.getItem(rightImgName));
-
-  const result = eloRating(leftRating, rightRating, k, leftWin);
-
-  sessionStorage.setItem(leftImgName, result.leftRating);
-  sessionStorage.setItem(rightImgName, result.rightRating);
-
-  let newImgName;
-  if (leftWin) {
-    // Меняем правую картинку
-    do {
-      newImgName = getRandomItem(imageArray);
-    } while (newImgName === leftImgName);
-    rightImage.src = imgDir + encodeURIComponent(newImgName);
-  } else {
-    // Меняем левую картинку
-    do {
-      newImgName = getRandomItem(imageArray);
-    } while (newImgName === rightImgName);
-    leftImage.src = imgDir + encodeURIComponent(newImgName);
-  }
-
-  function sendRatingToGoogle(leftImgName, rightImgName, leftWin) {
-    fetch("https://script.google.com/macros/s/AKfycbxLbY4Nq3Ivu24UiI7n69T_tIH40XZZT-Ecc8uQPAVA68mkirqXYkS7PTiYhx4-P3qaSw/exec", {
-      method: "POST",
-      body: JSON.stringify({
-        leftImg: leftImgName,
-        rightImg: rightImgName,
-        leftWin: leftWin
-      }),
-      headers: {
-        "Content-Type": "application/json"
-      }
-    })
-    .then(res => res.json())
-    .then(data => console.log("Rating updated:", data))
-    .catch(err => console.error("Failed to send rating:", err));
-  }
+  
+  document.getElementById('leftImg').src = imgDir + encodeURIComponent(nextMatch[0]);
+  document.getElementById('rightImg').src = imgDir + encodeURIComponent(nextMatch[1]);
+  currentMatchIndex++;
+  return true;
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-  // Populate the array with filenames
-  for (let i = 1; i <= arrayLength; i++) {
-    let img = `${imgNaming} (${i}).jpg`;
-    imageArray.push(img);
-    sessionStorage.setItem(img, baseRating);
+document.addEventListener('DOMContentLoaded', () => {
+  // Инициализация и перемешивание
+  const initialArray = Array.from({length: arrayLength}, 
+    (_, i) => `${imgNaming} (${i+1}).jpg`);
+  shuffleArray(initialArray);
+  
+  // Формируем пары первого раунда
+  for (let i = 0; i < initialArray.length; i += 2) {
+    tournamentQueue.push([initialArray[i], initialArray[i + 1]]);
   }
+  
+  // Инициализируем sessionStorage
+  initialArray.forEach(img => {
+    if (!sessionStorage.getItem(img)) {
+      sessionStorage.setItem(img, baseRating);
+    }
+  });
 
-  let leftImg, rightImg;
-  do {
-    leftImg = getRandomItem(imageArray);
-    rightImg = getRandomItem(imageArray);
-  } while (leftImg === rightImg);
-
-  document.getElementById('leftImg').src = imgDir + encodeURIComponent(leftImg);
-  document.getElementById('rightImg').src = imgDir + encodeURIComponent(rightImg);
+  prepareNextMatch();
 });
 
-// left wins, right loses
-function clickLeft() { 
-  updateEloAndDisplay(true);
+function handleVote(isLeftWinner) {
+  const leftImg = decodeURIComponent(getImgName(
+    document.getElementById('leftImg').src));
+  const rightImg = decodeURIComponent(getImgName(
+    document.getElementById('rightImg').src));
+  
+  const winner = isLeftWinner ? leftImg : rightImg;
+  const loser = isLeftWinner ? rightImg : leftImg;
+  
+  updateRatings(winner, loser);
+  sendResultToServer(winner, loser);
+  
+  if (!prepareNextMatch()) {
+    document.getElementById('leftImg').style.display = 'none';
+    document.getElementById('rightImg').style.display = 'none';
+  }
 }
 
-// right wins, left loses
-function clickRight() { 
-  updateEloAndDisplay(false);
+function sendResultToServer(winner, loser) {
+  fetch("https://script.google.com/macros/s/AKfycbxLbY4Nq3Ivu24UiI7n69T_tIH40XZZT-Ecc8uQPAVA68mkirqXYkS7PTiYhx4-P3qaSw/exec", {
+    method: "POST",
+    body: JSON.stringify({ winner, loser }),
+    headers: { "Content-Type": "application/json" }
+  }).catch(console.error);
 }
 
+// Обработчики кликов
+function clickLeft() { handleVote(true); }
+function clickRight() { handleVote(false); }
 
 //https://script.google.com/macros/s/AKfycbxLbY4Nq3Ivu24UiI7n69T_tIH40XZZT-Ecc8uQPAVA68mkirqXYkS7PTiYhx4-P3qaSw/exec
 //AKfycbxLbY4Nq3Ivu24UiI7n69T_tIH40XZZT-Ecc8uQPAVA68mkirqXYkS7PTiYhx4-P3qaSw
