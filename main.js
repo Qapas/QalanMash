@@ -4,9 +4,13 @@ const arrayLength = 30;
 let tournamentQueue = [];
 let currentRound = 1;
 let currentMatchIndex = 0;
-
+let isTiebreakerMode = false;
+let tiebreakerQueue = [];
+let tiebreakerAttempts = 0;
+const MAX_TIEBREAKER_ATTEMPTS = 20; // Увеличили количество попыток
+const RATING_PRECISION = 0.001; // Увеличили точность сравнения
 let baseRating = 1000;
-const k = 32;
+const k = 40; // Увеличили K-фактор для большей динамики рейтингов
 
 // Fisher-Yates shuffle
 function shuffleArray(array) {
@@ -29,21 +33,105 @@ function updateRatings(winner, loser) {
   const winnerRating = parseFloat(sessionStorage.getItem(winner)) || baseRating;
   const loserRating = parseFloat(sessionStorage.getItem(loser)) || baseRating;
   
-  const expectedWin = probability(loserRating, winnerRating);
-  const newWinnerRating = winnerRating + k * (1 - expectedWin);
-  const newLoserRating = loserRating + k * (0 - (1 - expectedWin));
+  const winnerProb = probability(loserRating, winnerRating);
+  const loserProb = probability(winnerRating, loserRating);
   
-  sessionStorage.setItem(winner, newWinnerRating);
-  sessionStorage.setItem(loser, newLoserRating);
+  const newWinnerRating = winnerRating + k * (1 - winnerProb);
+  const newLoserRating = loserRating + k * (0 - loserProb);
+  
+  sessionStorage.setItem(winner, Math.max(newWinnerRating, baseRating - 100));
+  sessionStorage.setItem(loser, Math.max(newLoserRating, baseRating - 100));
+}
+
+function getSortedRatings() {
+  const items = [];
+  for (let i = 0; i < sessionStorage.length; i++) {
+    const key = sessionStorage.key(i);
+    items.push({
+      name: key,
+      rating: parseFloat(sessionStorage.getItem(key))
+    });
+  }
+  return items.sort((a, b) => b.rating - a.rating);
+}
+
+function hasRatingDuplicates(topN = 10) {
+  const sorted = getSortedRatings();
+  const top = sorted.slice(0, topN);
+  
+  // Новая проверка с группировкой
+  const ratingsSet = new Set();
+  top.forEach(item => {
+    const key = item.rating.toFixed(3);
+    ratingsSet.add(key);
+  });
+  
+  return ratingsSet.size !== top.length;
+}
+
+function prepareTiebreakers() {
+  const sorted = getSortedRatings().slice(0, 10); // Берем только топ-10
+  const ratingGroups = new Map();
+  
+  sorted.forEach(item => {
+    const key = item.rating.toFixed(3);
+    if (!ratingGroups.has(key)) ratingGroups.set(key, []);
+    ratingGroups.get(key).push(item.name);
+  });
+
+  // Новая логика формирования пар
+  tiebreakerQueue = [];
+  ratingGroups.forEach(group => {
+    if (group.length > 1) {
+      // Перемешиваем внутри группы перед созданием пар
+      shuffleArray(group);
+      for (let i = 0; i < group.length; i += 2) {
+        if (i+1 < group.length) {
+          tiebreakerQueue.push([group[i], group[i+1]]);
+        }
+      }
+    }
+  });
+  
+  return tiebreakerQueue.length > 0;
+}
+
+function updateTiebreakerMatch() {
+  if (tiebreakerQueue.length === 0) {
+    if (!prepareTiebreakers() || tiebreakerAttempts >= MAX_TIEBREAKER_ATTEMPTS) {
+      endTiebreakerMode();
+      return;
+    }
+    tiebreakerAttempts++;
+  }
+  
+  const nextMatch = tiebreakerQueue.shift();
+  document.getElementById('leftImg').src = imgDir + encodeURIComponent(nextMatch[0]);
+  document.getElementById('rightImg').src = imgDir + encodeURIComponent(nextMatch[1]);
+}
+
+function endTiebreakerMode() {
+  isTiebreakerMode = false;
+  alert('Финальные рейтинги:\n' + 
+    getSortedRatings()
+      .map((item, index) => `${index+1}. ${item.name}: ${item.rating.toFixed(3)}`)
+      .join('\n'));
 }
 
 function prepareNextMatch() {
+  if (isTiebreakerMode) return true;
+  
   if (currentMatchIndex + 1 >= tournamentQueue.length) {
-    // Переход к следующему раунду
     currentRound++;
-    const winners = tournamentQueue.filter((_, i) => i % 2 === 0); // Берем первых из пар
+    const winners = tournamentQueue.filter((_, i) => i % 2 === 0);
     if (winners.length <= 1) {
-      alert(`Tournament finished! Winner: ${winners[0]}`);
+      if (hasRatingDuplicates(10)) {
+        isTiebreakerMode = true;
+        tiebreakerAttempts = 0;
+        updateTiebreakerMatch();
+        return true;
+      }
+      endTiebreakerMode();
       return false;
     }
     
@@ -55,7 +143,7 @@ function prepareNextMatch() {
   }
   
   const nextMatch = tournamentQueue[currentMatchIndex];
-  if (!nextMatch[1]) { // Нечетное количество участников
+  if (!nextMatch[1]) {
     tournamentQueue.splice(currentMatchIndex, 1);
     return prepareNextMatch();
   }
@@ -65,27 +153,6 @@ function prepareNextMatch() {
   currentMatchIndex++;
   return true;
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-  // Инициализация и перемешивание
-  const initialArray = Array.from({length: arrayLength}, 
-    (_, i) => `${imgNaming} (${i+1}).jpg`);
-  shuffleArray(initialArray);
-  
-  // Формируем пары первого раунда
-  for (let i = 0; i < initialArray.length; i += 2) {
-    tournamentQueue.push([initialArray[i], initialArray[i + 1]]);
-  }
-  
-  // Инициализируем sessionStorage
-  initialArray.forEach(img => {
-    if (!sessionStorage.getItem(img)) {
-      sessionStorage.setItem(img, baseRating);
-    }
-  });
-
-  prepareNextMatch();
-});
 
 function handleVote(isLeftWinner) {
   const leftImg = decodeURIComponent(getImgName(
@@ -98,10 +165,22 @@ function handleVote(isLeftWinner) {
   
   updateRatings(winner, loser);
   sendResultToServer(winner, loser);
-  
-  if (!prepareNextMatch()) {
-    document.getElementById('leftImg').style.display = 'none';
-    document.getElementById('rightImg').style.display = 'none';
+
+  // Новая логика обработки прогресса
+  if (isTiebreakerMode) {
+    updateTiebreakerMatch();
+    document.getElementById('roundInfo').textContent = 
+      `Переголосование #${tiebreakerAttempts+1} (осталось: ${tiebreakerQueue.length})`;
+  } else if (!prepareNextMatch()) {
+    if (hasRatingDuplicates(10)) {
+      isTiebreakerMode = true;
+      tiebreakerAttempts = 0;
+      updateTiebreakerMatch();
+      document.getElementById('roundInfo').textContent = 
+        `Переголосование #${tiebreakerAttempts+1}`;
+    } else {
+      endTiebreakerMode();
+    }
   }
 }
 
@@ -113,9 +192,27 @@ function sendResultToServer(winner, loser) {
   }).catch(console.error);
 }
 
-// Обработчики кликов
+document.addEventListener('DOMContentLoaded', () => {
+  const initialArray = Array.from({length: arrayLength}, 
+    (_, i) => `${imgNaming} (${i+1}).jpg`);
+  shuffleArray(initialArray);
+  
+  for (let i = 0; i < initialArray.length; i += 2) {
+    tournamentQueue.push([initialArray[i], initialArray[i + 1]]);
+  }
+  
+  initialArray.forEach(img => {
+    if (!sessionStorage.getItem(img)) {
+      sessionStorage.setItem(img, baseRating);
+    }
+  });
+
+  const roundInfo = document.createElement('div');
+  roundInfo.id = 'roundInfo';
+  document.body.prepend(roundInfo);
+  
+  prepareNextMatch();
+});
+
 function clickLeft() { handleVote(true); }
 function clickRight() { handleVote(false); }
-
-//https://script.google.com/macros/s/AKfycbxLbY4Nq3Ivu24UiI7n69T_tIH40XZZT-Ecc8uQPAVA68mkirqXYkS7PTiYhx4-P3qaSw/exec
-//AKfycbxLbY4Nq3Ivu24UiI7n69T_tIH40XZZT-Ecc8uQPAVA68mkirqXYkS7PTiYhx4-P3qaSw
